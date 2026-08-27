@@ -1,0 +1,78 @@
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.toggleRow:last-of-type {
+  border-bottom: none;
+}
+
+.toggleBody {
+  flex: 1;
+}
+
+.toggleLabel {
+  font-weight: 600;
+  display: block;
+}
+
+.checkbox {
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+  flex: none;
+}
+
+.limits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+
+.limit {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.875rem;
+  padding: 9px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--rule-strong);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.limit:hover:not(:disabled) {
+  border-color: var(--accent-soft);
+}
+
+.limitActive {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.limit:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.status {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  min-height: 1.2em;
+}
+
+.statusError {
+  color: var(--bad);
+}

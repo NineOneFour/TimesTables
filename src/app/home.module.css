@@ -1,0 +1,53 @@
+.door {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.title {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 800;
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+  margin: 0;
+  max-width: 14ch;
+}
+
+.instruction {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.9375rem;
+  color: var(--ink-2);
+  letter-spacing: 0.01em;
+}
+
+.start {
+  font-size: 1.125rem;
+  padding: 16px 40px;
+}
+
+.aside {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.aside a {
+  color: var(--ink-3);
+  text-decoration: none;
+}
+
+.aside a:hover {
+  color: var(--accent);
+}

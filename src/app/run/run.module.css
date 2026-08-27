@@ -1,0 +1,122 @@
+/*
+  The run screen. Nothing here reports progress, time, score or correctness —
+  the child sees a problem and a place to type, and that is all.
+
+  The one exception is the reference chart, which is opt-in from settings: a
+  deliberate training-wheels mode. It sits to the side rather than under the
+  input so it never pushes the answer field off a short screen.
+*/
+
+.stage {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(24px, 5vh, 56px);
+  padding: 24px;
+}
+
+.prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(24px, 5vh, 56px);
+}
+
+/*
+  With the aid shown the stage becomes two columns on anything wide enough,
+  and stacks below that. The prompt keeps first place in both directions.
+*/
+.stageWithAid {
+  gap: clamp(20px, 4vh, 40px);
+}
+
+@media (min-width: 900px) {
+  .stageWithAid {
+    flex-direction: row;
+    justify-content: center;
+    gap: clamp(32px, 5vw, 72px);
+  }
+}
+
+.aid {
+  flex: none;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  box-shadow: var(--shadow);
+  user-select: none;
+}
+
+.stageWithAid .problem {
+  font-size: clamp(3rem, 11vw, 7rem);
+}
+
+.stageWithAid .answer {
+  font-size: clamp(2.25rem, 7vw, 4.5rem);
+}
+
+.problem {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(3.5rem, 17vw, 10rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.times {
+  color: var(--ink-3);
+  padding: 0 0.12em;
+}
+
+.answer {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(2.5rem, 10vw, 5.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--ink);
+  width: min(340px, 70vw);
+  padding: 0 0 0.08em;
+  background: transparent;
+  border: none;
+  border-bottom: 4px solid var(--rule-strong);
+  border-radius: 0;
+  caret-color: var(--accent);
+  transition: border-color 120ms ease;
+}
+
+.answer:focus {
+  outline: none;
+  border-bottom-color: var(--accent);
+}
+
+.answer::-webkit-outer-spin-button,
+.answer::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.quiet {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.875rem;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+
+.failure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  max-width: 46ch;
+}

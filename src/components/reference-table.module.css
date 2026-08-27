@@ -1,0 +1,112 @@
+/*
+  The reference chart. Same grid motif as the mastery grid, but inverted in
+  emphasis: there the colour is the data and the number is a detail, here the
+  product is what gets read and mastery is only a wash behind it. So the fills
+  are tints rather than the saturated mastery colours — a child looking up
+  7 × 8 must be able to read 56 off any cell.
+*/
+
+.wrap {
+  overflow-x: auto;
+}
+
+.grid {
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  margin: 0 auto;
+}
+
+.grid caption {
+  caption-side: top;
+  text-align: left;
+  color: var(--ink-2);
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 0.875rem;
+  padding-bottom: 12px;
+}
+
+.grid th {
+  color: var(--ink-2);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  padding: 0;
+  width: 38px;
+  height: 38px;
+  text-align: center;
+  background: var(--accent-wash);
+  border-radius: 4px;
+}
+
+.corner {
+  color: var(--ink-3);
+  font-size: 0.75rem;
+  background: transparent !important;
+}
+
+.cell {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 4px;
+  text-align: center;
+  vertical-align: middle;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+}
+
+/* Tints, not the mastery colours themselves — the product stays readable. */
+.cellUnknown {
+  background-color: var(--surface);
+}
+
+.cellWeak {
+  background: color-mix(in srgb, var(--mastery-weak) 16%, var(--surface));
+  border-color: color-mix(in srgb, var(--mastery-weak) 34%, var(--surface));
+}
+
+.cellDeveloping {
+  background: color-mix(in srgb, var(--mastery-developing) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--mastery-developing) 36%, var(--surface));
+}
+
+.cellStrong {
+  background: color-mix(in srgb, var(--mastery-strong) 16%, var(--surface));
+  border-color: color-mix(in srgb, var(--mastery-strong) 34%, var(--surface));
+}
+
+.cellMastered {
+  background: color-mix(in srgb, var(--mastery-mastered) 13%, var(--surface));
+  border-color: color-mix(in srgb, var(--mastery-mastered) 30%, var(--surface));
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* ---------- compact variant, for alongside a live problem ---------- */
+
+.compact .grid {
+  font-size: 0.6875rem;
+  border-spacing: 1px;
+}
+
+.compact .grid th,
+.compact .cell {
+  width: 26px;
+  height: 26px;
+}
+
+.compact .grid th {
+  font-size: 0.625rem;
+}
+
+.compact .legend {
+  display: none;
+}

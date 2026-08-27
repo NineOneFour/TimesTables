@@ -1,0 +1,320 @@
+/*
+  Multiplication Practice — visual system
+
+  The subject's own artifact is the times-table grid, so the grid is the motif:
+  faint graph-paper ruling on every surface, and on the analysis screens a real
+  factor grid coloured by mastery. The run screen is deliberately stripped of
+  all of it except the ruling.
+
+  Mastery colour is a diverging scale — coral (needs work) through to violet
+  (fluent) — with the polarity boundary falling between Developing and Strong.
+  Unknown is textured rather than coloured, because it is absence of data, not
+  a low value.
+*/
+
+:root {
+  --ink: #131c2b;
+  --ink-2: #46536b;
+  --ink-3: #7d889b;
+
+  --paper: #eaeef4;
+  --surface: #ffffff;
+  --rule: #d6dde7;
+  --rule-strong: #b9c4d2;
+  --graph: rgba(19, 28, 43, 0.055);
+
+  --accent: #4a35c8;
+  --accent-soft: #8f83f0;
+  --accent-wash: #eeecfb;
+
+  --mastery-weak: #c8392f;
+  --mastery-developing: #e5806c;
+  --mastery-strong: #8f83f0;
+  --mastery-mastered: #4a35c8;
+
+  --good: #1f8a70;
+  --bad: #c8392f;
+  --absent: #5f7196;
+
+  --step: 4px;
+  --radius: 6px;
+  --radius-lg: 14px;
+
+  --shadow: 0 1px 2px rgba(19, 28, 43, 0.06), 0 8px 24px -16px rgba(19, 28, 43, 0.3);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--paper);
+  /* Graph paper: 24px ruling, the app's one piece of ambient texture. */
+  background-image:
+    linear-gradient(to right, var(--graph) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--graph) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display), var(--font-body), system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(2rem, 4vw, 2.75rem);
+}
+
+h2 {
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: 1rem;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ---------- layout primitives ---------- */
+
+.shell {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+/*
+  Eyebrows name the kind of thing below them. They are used only where the
+  page has more than one kind of section, never as decoration.
+*/
+.eyebrow {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.note {
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  max-width: 62ch;
+}
+
+.muted {
+  color: var(--ink-3);
+}
+
+.empty {
+  color: var(--ink-3);
+  font-size: 0.9375rem;
+  padding: 8px 0;
+}
+
+/* ---------- controls ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: inherit;
+  font-weight: 550;
+  padding: 11px 18px;
+  border-radius: var(--radius);
+  border: 1px solid var(--rule-strong);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--accent-wash);
+  border-color: var(--accent-soft);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btnPrimary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: #3c2ba6;
+  border-color: #3c2ba6;
+}
+
+.btnRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* ---------- data tables ---------- */
+
+.tableWrap {
+  overflow-x: auto;
+  margin: 0 -8px;
+  padding: 0 8px;
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dataTable caption {
+  text-align: left;
+  color: var(--ink-3);
+  font-size: 0.8125rem;
+  padding-bottom: 10px;
+}
+
+.dataTable th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 0 12px 8px 0;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+.dataTable td {
+  padding: 9px 12px 9px 0;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+.dataTable tr:last-child td {
+  border-bottom: none;
+}
+
+.numeric {
+  text-align: right;
+  padding-right: 12px;
+}
+
+.factCell {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ---------- mastery + result chips ---------- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: none;
+  border: 1px solid rgba(19, 28, 43, 0.18);
+}
+
+.swatchUnknown {
+  background-color: var(--surface);
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--rule-strong) 0 1.5px,
+    transparent 1.5px 4px
+  );
+}
+
+.swatchWeak { background: var(--mastery-weak); }
+.swatchDeveloping { background: var(--mastery-developing); }
+.swatchStrong { background: var(--mastery-strong); }
+.swatchMastered { background: var(--mastery-mastered); }
+
+.resultCorrect { color: var(--good); }
+.resultIncorrect { color: var(--bad); }
+.resultTimeout { color: var(--absent); }
+
+.trendImproving { color: var(--good); }
+.trendRegressing { color: var(--bad); }
+.trendSteady { color: var(--ink-2); }
+.trendInsufficient { color: var(--ink-3); }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
