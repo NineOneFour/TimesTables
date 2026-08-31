@@ -2,7 +2,11 @@ import { getDb } from './db'
 import { INITIAL_MASTERY, statusForScore } from './mastery'
 import type { AttemptResult, Fact, FactRecord, Settings } from './types'
 
-export const BASE_FACTORS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+/**
+ * Always in the pool. 10 sits here rather than behind a toggle like 11 and 12
+ * because it is the easiest factor in the table, not a harder extension of it.
+ */
+export const BASE_FACTORS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 /** Stable key shared by a commutative pair, for pair-level analysis. */
 export function pairKey(a: number, b: number): string {

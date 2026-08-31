@@ -45,7 +45,7 @@ export default function SettingsForm({
       <section className="panel">
         <div className="panelHeader">
           <h2>Factor pool</h2>
-          <span className="eyebrow">1 to 9 always included</span>
+          <span className="eyebrow">1 to 10 always included</span>
         </div>
         <p className="note">
           Turning a factor off removes it from future problems. Its history is
