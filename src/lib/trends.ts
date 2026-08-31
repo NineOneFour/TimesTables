@@ -73,6 +73,47 @@ export function getSessionTrend(kidId: number, limit = 30): SessionTrendPoint[] 
     .reverse()
 }
 
+export interface DailySessionCount {
+  /** Local calendar day, YYYY-MM-DD. */
+  day: string
+  started: number
+  completed: number
+}
+
+/**
+ * Sessions per day, started against completed.
+ *
+ * Grouped by the day the session was *started*, so the two counts describe the
+ * same sittings and the gap between them is the number left unfinished — a
+ * session that ran past midnight would otherwise be started on one day and
+ * completed on the next.
+ *
+ * Grouped in local time, not UTC. Timestamps are stored in UTC, and an evening
+ * session west of Greenwich lands on the following UTC day — 21:05 on the 29th
+ * is stored as 02:05 on the 30th, which would file it under the wrong day.
+ *
+ * Unlike the accuracy charts this counts focused practice runs too: the question
+ * is how much practice was attempted, not how it scored.
+ */
+export function getDailySessionCounts(
+  kidId: number,
+  limit = 30,
+): DailySessionCount[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT date(startedAt, 'localtime')        AS day,
+              COUNT(*)                            AS started,
+              SUM(completedAt IS NOT NULL)        AS completed
+         FROM sessions
+        WHERE kidId = ?
+        GROUP BY day
+        ORDER BY day DESC
+        LIMIT ?`,
+    )
+    .all(kidId, limit) as DailySessionCount[]
+  return rows
+}
+
 export interface FactWindowStats {
   attempts: number
   correct: number

@@ -46,6 +46,23 @@ export function shortDate(iso: string): string {
   })
 }
 
+/**
+ * Formats a plain YYYY-MM-DD calendar day, as produced by a local-time GROUP BY.
+ *
+ * Built from the parts rather than new Date(day): a bare date string is parsed
+ * as UTC midnight, which renders as the previous day for anyone west of
+ * Greenwich — the exact off-by-one the local-time grouping exists to avoid.
+ */
+export function calendarDay(day: string): string {
+  const [year, month, date] = day.split('-').map(Number)
+  if (!year || !month || !date) return day
+  return new Date(year, month - 1, date).toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
 export function longDateTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     dateStyle: 'medium',

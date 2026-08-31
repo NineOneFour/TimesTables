@@ -5,6 +5,7 @@ import SiteNav from '@/components/site-nav'
 import { activeFactors, getActiveFactRecords } from '@/lib/facts'
 import {
   MASTERY_SWATCH,
+  calendarDay,
   factLabel,
   masteryLabel,
   percent,
@@ -16,6 +17,7 @@ import { getSettings } from '@/lib/settings'
 import { getTimerEvents } from '@/lib/timer'
 import {
   getCorrectButSlow,
+  getDailySessionCounts,
   getExtremeFacts,
   getFactTrends,
   getFrequentlyIncorrect,
@@ -73,6 +75,7 @@ export default async function TrendsPage({
   const frequentlyIncorrect = getFrequentlyIncorrect(kidId).slice(0, 10)
   const frequentlyTimedOut = getFrequentlyTimedOut(kidId).slice(0, 10)
   const correctButSlow = getCorrectButSlow(kidId).slice(0, 10)
+  const dailySessions = getDailySessionCounts(kidId, 30)
   const masteryEvents = getMasteryEvents(kidId, 25)
   const timerEvents = getTimerEvents(kidId, 10)
 
@@ -166,6 +169,50 @@ export default async function TrendsPage({
               </span>
             ))}
           </div>
+        </section>
+
+        <section className="panel">
+          <div className="panelHeader">
+            <h2>Practice by day</h2>
+            <span className="eyebrow">Started and finished</span>
+          </div>
+          {dailySessions.length === 0 ? (
+            <p className="empty">No practice sessions yet.</p>
+          ) : (
+            <div className="tableWrap" style={{ marginTop: 16 }}>
+              <table className="dataTable">
+                <caption>
+                  Newest first, by the day each session was started. Includes
+                  focused practice runs. A run left unfinished counts as started
+                  but not completed.
+                </caption>
+                <thead>
+                  <tr>
+                    <th>Day</th>
+                    <th className="numeric">Started</th>
+                    <th className="numeric">Completed</th>
+                    <th className="numeric">Unfinished</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailySessions.map((row) => (
+                    <tr key={row.day}>
+                      <td>{calendarDay(row.day)}</td>
+                      <td className="numeric">{row.started}</td>
+                      <td className="numeric">{row.completed}</td>
+                      <td className="numeric">
+                        {row.started - row.completed === 0 ? (
+                          <span className="muted">0</span>
+                        ) : (
+                          row.started - row.completed
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         <section className="panel">
