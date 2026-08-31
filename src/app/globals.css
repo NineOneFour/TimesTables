@@ -262,6 +262,18 @@ a {
   padding-right: 12px;
 }
 
+/*
+  Numeric headers must be right-aligned over their right-aligned values.
+
+  This needs the combined selector rather than relying on .numeric alone:
+  `.dataTable th` is (0,1,1) and beats a bare `.numeric` at (0,1,0), so the
+  header stayed left-aligned at one edge of the column while the figures sat at
+  the other — which is what made every data table look misaligned.
+*/
+.dataTable th.numeric {
+  text-align: right;
+}
+
 .factCell {
   font-weight: 600;
   color: var(--ink);
