@@ -21,11 +21,31 @@ HOST="${1:-${DEPLOY_HOST:-timestables}}"
 BASE_URL="${2:-${DEPLOY_URL:-http://$HOST}}"
 REMOTE="${DEPLOY_PATH:-/opt/timestables}"
 
-# Every ssh call gets a connect timeout. Without one, a host that accepts no
-# connections — an sshd hiccup, or a rate limiter tripped by this script's own
-# five connections — leaves a bare `ssh` hanging indefinitely, which reads as the
-# deploy being stuck on whichever step it had just announced.
-SSH_OPTS=(-o ConnectTimeout=25 -o ServerAliveInterval=15)
+# All ssh traffic is multiplexed over a single connection.
+#
+# This script otherwise opens five in quick succession — config check, npm ci,
+# symlink check, restart, is-active — which is enough to trip a per-source
+# connection rate limiter (fail2ban, sshguard, sshd's own MaxStartups). When that
+# happens mid-run the deploy stops between the rsync and the restart, leaving the
+# box holding files the running service has not loaded: content-hashed asset names
+# have changed underneath it, so pages come back 200 while their stylesheet and
+# scripts 404. One connection avoids the whole failure mode.
+#
+# ConnectTimeout stays regardless: without it a host accepting no connections
+# leaves a bare `ssh` hanging indefinitely, which reads as the deploy being stuck
+# on whichever step it last announced.
+SSH_CTL="${TMPDIR:-/tmp}/timestables-deploy-$$.sock"
+SSH_OPTS=(
+  -o ConnectTimeout=25
+  -o ServerAliveInterval=15
+  -o ControlMaster=auto
+  -o ControlPath="$SSH_CTL"
+  -o ControlPersist=120
+)
+# Closes the shared connection however the script exits, rather than leaving it
+# persisting for two minutes after a failure.
+cleanup() { ssh -o ControlPath="$SSH_CTL" -O exit "$HOST" 2>/dev/null || true; }
+trap cleanup EXIT
 
 # Checked before anything is built or copied: the app refuses to serve without
 # SESSION_SECRET, so deploying to a box that has none takes the site down until
@@ -60,7 +80,7 @@ rsync -az --delete \
   --exclude '/.next/cache/' \
   --exclude '*.tsbuildinfo' \
   --exclude '/deploy.sh' \
-  -e 'ssh -o ServerAliveInterval=15 -o ConnectTimeout=25' \
+  -e "ssh ${SSH_OPTS[*]}" \
   ./ "$HOST:$REMOTE/"
 
 echo "==> installing production deps"
@@ -117,4 +137,25 @@ smoke /settings      307
 smoke /kids          307
 smoke /api/settings  401
 smoke /signin        200 307
+
+# A page can render perfectly while its stylesheet 404s, which is what happens
+# between the rsync and the restart: content-hashed filenames change, the old
+# process keeps serving HTML naming the files rsync has already deleted, and the
+# result is an unstyled page behind a 200. Checked explicitly because every
+# status code above stays correct while it is broken.
+echo "==> stylesheet reachable"
+css=$(curl -s "$BASE_URL/signin" | grep -oE '/_next/static/[^"]+\.css' | head -1)
+if [ -z "$css" ]; then
+  echo "FAIL: no stylesheet referenced by /signin"
+  exit 1
+fi
+css_code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE_URL$css")
+printf '  %-16s %s\n' "$(basename "$css")" "$css_code"
+[ "$css_code" = "200" ] || {
+  echo "FAIL: $css returned $css_code — the page will render unstyled."
+  echo "      Usually means the service is serving a build older than the files"
+  echo "      on disk. Restart timestables.service."
+  exit 1
+}
+
 echo "==> deployed: $BASE_URL"
