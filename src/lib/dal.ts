@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { redirect } from 'next/navigation'
 import { getOwnedKid, listKids, type Kid } from './accounts'
-import { readSession, type Session } from './auth'
+import { readHousehold, readSession, type Session } from './auth'
 
 /*
   The one place that decides who may read or write which kid's data.
@@ -26,10 +26,25 @@ export const currentSession = cache(async (): Promise<Session | null> => {
   return readSession()
 })
 
+/**
+ * Where an unauthenticated visitor is sent.
+ *
+ * The child's PIN screen is the default door: practice is the thing that happens
+ * daily, while a parent signs in occasionally to read progress, and the parent
+ * form is one link away from it.
+ *
+ * A device with no household cookie has never had a parent sign in on it, so
+ * there is no household to check a PIN against — the parent form is the only
+ * thing that can work there.
+ */
+export const signInPath = cache(async (): Promise<string> => {
+  return (await readHousehold()) === null ? '/signin' : '/signin/kid'
+})
+
 /** For pages and server actions: redirects when not signed in. */
 export async function requireSession(): Promise<Session> {
   const session = await currentSession()
-  if (!session) redirect('/signin')
+  if (!session) redirect(await signInPath())
   return session
 }
 
@@ -93,7 +108,7 @@ export async function requireKid(requested?: number): Promise<Kid> {
     }
     redirect('/kids')
   }
-  redirect('/signin')
+  redirect(await signInPath())
 }
 
 /** Parses a kidId search param. Returns undefined for anything unusable. */

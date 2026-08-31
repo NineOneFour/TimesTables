@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { bootstrapMode } from '@/lib/accounts'
+import { signInPath } from '@/lib/dal'
 import SetupForm from './setup-form'
 
 export const dynamic = 'force-dynamic'
@@ -9,9 +10,10 @@ export const metadata = { title: 'Setup' }
  * Reachable without signing in, so it must close itself the moment a real
  * account exists. Otherwise it is a way to add a parent to a running instance.
  */
-export default function SetupPage() {
+export default async function SetupPage() {
   const mode = bootstrapMode()
-  if (mode === 'closed') redirect('/signin')
+  // Already set up: send them to the same door as any other visitor.
+  if (mode === 'closed') redirect(await signInPath())
 
   return (
     <div className="gate">
