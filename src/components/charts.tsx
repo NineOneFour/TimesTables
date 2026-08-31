@@ -24,6 +24,7 @@ export function LineChart({
   max,
   unit,
   color = 'var(--accent)',
+  emptyNote = 'Two points are needed before a trend can be drawn.',
 }: {
   caption: string
   points: LinePoint[]
@@ -32,6 +33,12 @@ export function LineChart({
   /* A descriptor rather than a formatter, so the props stay serialisable. */
   unit: 'percent' | 'seconds'
   color?: string
+  /**
+   * Shown when there is not enough to plot. Worth passing: the guard is on
+   * points with a value, which is not the same as sessions completed, and a
+   * message naming the wrong thing sends you looking for data that is there.
+   */
+  emptyNote?: string
 }) {
   const formatValue = (value: number) =>
     unit === 'percent' ? `${Math.round(value)}%` : `${value.toFixed(0)}s`
@@ -49,9 +56,7 @@ export function LineChart({
     return (
       <figure className={styles.figure}>
         <figcaption className={styles.caption}>{caption}</figcaption>
-        <p className="empty">
-          Two completed sessions are needed before a trend can be drawn.
-        </p>
+        <p className="empty">{emptyNote}</p>
       </figure>
     )
   }

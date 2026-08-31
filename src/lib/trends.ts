@@ -114,6 +114,78 @@ export function getDailySessionCounts(
   return rows
 }
 
+export interface DailyPerformance {
+  /** Local calendar day, YYYY-MM-DD. */
+  day: string
+  presented: number
+  correct: number
+  timeouts: number
+  accuracyPresented: number
+  /** Null on a day where every problem timed out. */
+  avgAnsweredMs: number | null
+}
+
+/**
+ * Accuracy and speed per day, over every problem answered that day.
+ *
+ * Aggregated from attempts rather than from session rows, which has two
+ * consequences worth stating:
+ *
+ * - It covers focused practice runs as well as full sessions. Excluding them
+ *   discards most of what actually gets practised — a child working through
+ *   remediation can complete ten runs to one standard session — and leaves a
+ *   trend with too few points to read.
+ * - It is weighted by problem, not by session, so a six-problem remediation run
+ *   moves the day's figures a sixth as much as a fifty-problem session. Averaging
+ *   per-session percentages would have given them equal say.
+ *
+ * Attempts are only written when a session is completed, so an abandoned run
+ * contributes nothing here.
+ */
+export function getDailyPerformance(
+  kidId: number,
+  limit = 30,
+): DailyPerformance[] {
+  interface Row {
+    day: string
+    presented: number
+    correct: number
+    timeouts: number
+    answeredMs: number | null
+    answered: number
+  }
+
+  const rows = getDb()
+    .prepare(
+      `SELECT date(createdAt, 'localtime')                    AS day,
+              COUNT(*)                                        AS presented,
+              SUM(result = 'correct')                         AS correct,
+              SUM(result = 'timeout')                         AS timeouts,
+              SUM(CASE WHEN result != 'timeout' THEN responseMs END) AS answeredMs,
+              SUM(result != 'timeout')                        AS answered
+         FROM attempts
+        WHERE kidId = ?
+        GROUP BY day
+        ORDER BY day DESC
+        LIMIT ?`,
+    )
+    .all(kidId, limit) as Row[]
+
+  return rows
+    .map((row) => ({
+      day: row.day,
+      presented: row.presented,
+      correct: row.correct,
+      timeouts: row.timeouts,
+      accuracyPresented: row.presented === 0 ? 0 : row.correct / row.presented,
+      avgAnsweredMs:
+        row.answered === 0 || row.answeredMs === null
+          ? null
+          : row.answeredMs / row.answered,
+    }))
+    .reverse()
+}
+
 export interface FactWindowStats {
   attempts: number
   correct: number

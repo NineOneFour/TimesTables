@@ -17,6 +17,7 @@ import { getSettings } from '@/lib/settings'
 import { getTimerEvents } from '@/lib/timer'
 import {
   getCorrectButSlow,
+  getDailyPerformance,
   getDailySessionCounts,
   getExtremeFacts,
   getFactTrends,
@@ -76,6 +77,7 @@ export default async function TrendsPage({
   const frequentlyTimedOut = getFrequentlyTimedOut(kidId).slice(0, 10)
   const correctButSlow = getCorrectButSlow(kidId).slice(0, 10)
   const dailySessions = getDailySessionCounts(kidId, 30)
+  const dailyPerformance = getDailyPerformance(kidId, 30)
   const masteryEvents = getMasteryEvents(kidId, 25)
   const timerEvents = getTimerEvents(kidId, 10)
 
@@ -85,19 +87,25 @@ export default async function TrendsPage({
       ? `/results/${sessionId}?kid=${kidId}`
       : `/results/${sessionId}`
 
-  const accuracyPoints: LinePoint[] = sessions.map((session) => ({
-    label: shortDate(session.completedAt),
-    value: session.accuracyPresented * 100,
-    detail: `${session.correct}/${session.presented} correct`,
+  /*
+    Plotted per day rather than per session. One point per session made the
+    charts a scatter of isolated values — a six-problem remediation run sat
+    beside a fifty-problem session as an equal — and excluding remediation left
+    barely anything to draw. Each point here is every problem answered that day.
+  */
+  const accuracyPoints: LinePoint[] = dailyPerformance.map((row) => ({
+    label: calendarDay(row.day),
+    value: row.accuracyPresented * 100,
+    detail: `${row.correct}/${row.presented} correct`,
   }))
 
-  const responsePoints: LinePoint[] = sessions.map((session) => ({
-    label: shortDate(session.completedAt),
-    value:
-      session.avgResponseAnsweredMs === null
-        ? null
-        : session.avgResponseAnsweredMs / 1000,
-    detail: `${seconds(session.avgResponseAnsweredMs)} average`,
+  const responsePoints: LinePoint[] = dailyPerformance.map((row) => ({
+    label: calendarDay(row.day),
+    value: row.avgAnsweredMs === null ? null : row.avgAnsweredMs / 1000,
+    detail:
+      row.avgAnsweredMs === null
+        ? 'nothing answered'
+        : `${seconds(row.avgAnsweredMs)} average`,
   }))
 
   const responseMax = Math.max(
@@ -218,23 +226,25 @@ export default async function TrendsPage({
         <section className="panel">
           <div className="panelHeader">
             <h2>Session history</h2>
-            <span className="eyebrow">Scored sessions only</span>
+            <span className="eyebrow">Charts all practice · table scored only</span>
           </div>
           <div className={styles.charts}>
             <LineChart
-              caption="Accuracy over time — correct of all presented"
+              caption="Accuracy by day — correct of every problem presented"
               points={accuracyPoints}
               min={0}
               max={100}
               unit="percent"
+              emptyNote="Two days of practice are needed before a trend can be drawn."
             />
             <LineChart
-              caption="Average response time over time — answered problems"
+              caption="Average response time by day — answered problems only"
               points={responsePoints}
               min={0}
               max={Math.ceil(responseMax)}
               unit="seconds"
               color="var(--good)"
+              emptyNote="Two days with at least one answered problem are needed before a trend can be drawn."
             />
           </div>
           {sessions.length === 0 ? (
