@@ -342,10 +342,13 @@ Things learned while implementing, worth keeping with the plan:
   `... 16:33:50`, and `T` sorts above the space — so a naive comparison matches
   every row from the same calendar day and would have held a lockout until
   midnight. The lockout window uses
-  `strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)` instead. **The same latent quirk
-  exists in the pre-existing trend windows** (`trends.ts`, `timer.ts`), where it
-  widens a 7- or 30-day window to the start of its first day. Left alone
-  deliberately: changing it would move numbers users have already seen.
+  the shared `SQL_NOW_ISO` expression instead. **The same latent quirk existed in
+  the pre-existing trend windows**, where it widened a 7- or 30-day window back
+  to the start of its first day; those three comparisons in `trends.ts` are now
+  fixed too. `timer.ts` was never affected — it bounds its recent-session query
+  with `ORDER BY completedAt DESC LIMIT`, not a date threshold. The fix changes
+  no current number in the real database, whose attempts all fall well inside
+  every window; it only discriminates rows near a boundary.
 - **A startup check was needed for `SESSION_SECRET`.** Validating it lazily was
   not enough — with no secret, every page still rendered (an absent cookie needs
   no verification) and the failure only surfaced as an opaque 500 at the first

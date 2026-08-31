@@ -292,13 +292,13 @@ function adoptLegacyDatabase(conn: Database.Database) {
         const parent = conn
           .prepare(
             `INSERT INTO parents (email, passwordHash, createdAt)
-             VALUES (?, ?, datetime('now'))`,
+             VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`,
           )
           .run(LEGACY_PARENT_EMAIL, PASSWORD_RESET_REQUIRED)
         const kid = conn
           .prepare(
             `INSERT INTO kids (parentId, name, pinHash, createdAt)
-             VALUES (?, ?, ?, datetime('now'))`,
+             VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`,
           )
           .run(Number(parent.lastInsertRowid), 'Practice', PASSWORD_RESET_REQUIRED)
         kidId = Number(kid.lastInsertRowid)
@@ -370,3 +370,15 @@ export function getDb(): Database.Database {
 export function nowIso(): string {
   return new Date().toISOString()
 }
+
+/**
+ * SQL for "now, shifted by a bound modifier", in the same format nowIso() writes.
+ *
+ * Timestamps are stored as ISO 8601 ('2026-08-31T16:33:50.859Z') but SQLite's
+ * datetime('now') yields '2026-08-31 16:33:50'. Compared as strings those agree
+ * on the date and then diverge: 'T' (0x54) sorts above ' ' (0x20), so every row
+ * from the threshold's own calendar day compares as greater regardless of its
+ * time. A window built with datetime() therefore always reaches back to the
+ * start of its first day. strftime with this format is directly comparable.
+ */
+export const SQL_NOW_ISO = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)"

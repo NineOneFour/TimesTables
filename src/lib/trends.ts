@@ -1,4 +1,4 @@
-import { getDb } from './db'
+import { SQL_NOW_ISO, getDb } from './db'
 import { getActiveFactRecords, getAllFactRecords } from './facts'
 import { getSettings } from './settings'
 import type { FactRecord, MasteryStatus } from './types'
@@ -126,8 +126,8 @@ function windowStats(
               SUM(result != 'timeout')                        AS answered
          FROM attempts
         WHERE kidId = ?
-          AND createdAt >= datetime('now', ?)
-          AND createdAt <  datetime('now', ?)
+          AND createdAt >= ${SQL_NOW_ISO}
+          AND createdAt <  ${SQL_NOW_ISO}
         GROUP BY a, b`,
     )
     .all(kidId, `-${sinceDaysAgo} days`, `-${untilDaysAgo} days`) as WindowRow[]
@@ -255,7 +255,7 @@ function factProblemCounts(
          LEFT JOIN facts f
                 ON f.kidId = a.kidId AND f.a = a.a AND f.b = a.b
         WHERE a.kidId = ?
-          AND a.createdAt >= datetime('now', ?)
+          AND a.createdAt >= ${SQL_NOW_ISO}
         GROUP BY a.a, a.b
        HAVING count > 0
         ORDER BY count DESC, attempts DESC`,

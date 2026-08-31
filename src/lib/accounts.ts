@@ -1,5 +1,5 @@
 import { MIN_PASSWORD_LENGTH, PIN_LENGTH } from './account-limits'
-import { getDb, nowIso } from './db'
+import { SQL_NOW_ISO, getDb, nowIso } from './db'
 import { NO_CREDENTIAL, hashSecret, verifySecret } from './crypto'
 
 /*
@@ -193,18 +193,15 @@ export function kidNeedsPin(kidId: number): boolean {
   Lockout. Counted per credential rather than per IP: the point is to stop a
   4-digit PIN being exhausted, and every device in a house shares an address.
 
-  The window is compared with strftime, not datetime(). Timestamps are stored as
-  ISO 8601 ('...T16:33:50.859Z') while datetime('now') yields '... 16:33:50', and
-  'T' sorts above ' ', so a naive comparison matches every row from the same
-  calendar day regardless of time — which would hold a lockout until midnight.
+  Windows use SQL_NOW_ISO rather than datetime(); see its comment in db.ts. With
+  datetime() a 15-minute lockout would have lasted until midnight.
 */
 
 function isLockedOut(scope: string): boolean {
   const row = getDb()
     .prepare(
       `SELECT COUNT(*) AS n FROM auth_failures
-        WHERE scope = ?
-          AND createdAt >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)`,
+        WHERE scope = ? AND createdAt >= ${SQL_NOW_ISO}`,
     )
     .get(scope, `-${LOCKOUT_MINUTES} minutes`) as { n: number }
   return row.n >= MAX_FAILURES
@@ -216,9 +213,8 @@ function recordFailure(scope: string) {
     'INSERT INTO auth_failures (scope, createdAt) VALUES (?, ?)',
   ).run(scope, nowIso())
   db.prepare(
-    `DELETE FROM auth_failures
-      WHERE createdAt < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 day')`,
-  ).run()
+    `DELETE FROM auth_failures WHERE createdAt < ${SQL_NOW_ISO}`,
+  ).run('-1 day')
 }
 
 function clearFailures(scope: string) {
