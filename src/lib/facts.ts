@@ -73,8 +73,10 @@ export function blankFactRecord(a: number, b: number): FactRecord {
   }
 }
 
-export function getAllFactRecords(): FactRecord[] {
-  const rows = getDb().prepare('SELECT * FROM facts').all() as FactRow[]
+export function getAllFactRecords(kidId: number): FactRecord[] {
+  const rows = getDb()
+    .prepare('SELECT * FROM facts WHERE kidId = ?')
+    .all(kidId) as FactRow[]
   return rows.map(hydrate)
 }
 
@@ -83,9 +85,15 @@ export function getAllFactRecords(): FactRecord[] {
  * Records outside the active pool are intentionally left alone — disabling a
  * factor removes it from practice, it never deletes its history.
  */
-export function getActiveFactRecords(settings: Settings): FactRecord[] {
+export function getActiveFactRecords(
+  kidId: number,
+  settings: Settings,
+): FactRecord[] {
   const stored = new Map(
-    getAllFactRecords().map((record) => [factKey(record.a, record.b), record]),
+    getAllFactRecords(kidId).map((record) => [
+      factKey(record.a, record.b),
+      record,
+    ]),
   )
   return activeFacts(settings).map(
     ({ a, b }) => stored.get(factKey(a, b)) ?? blankFactRecord(a, b),

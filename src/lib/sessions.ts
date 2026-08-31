@@ -33,21 +33,25 @@ export interface NewSession {
   problems: Fact[]
 }
 
-export function createStandardSession(): NewSession {
-  const settings = getSettings()
-  const problems = buildStandardSession(settings, STANDARD_SESSION_LENGTH)
-  return insertSession('standard', settings.timeLimitMs, problems, null)
+export function createStandardSession(kidId: number): NewSession {
+  const settings = getSettings(kidId)
+  const problems = buildStandardSession(kidId, settings, STANDARD_SESSION_LENGTH)
+  return insertSession(kidId, 'standard', settings.timeLimitMs, problems, null)
 }
 
 /**
  * Remediation over the facts a previous session found difficult: anything
  * incorrect, timed out, or answered correctly but slowly.
  */
-export function createRemediationSession(sourceSessionId: number): NewSession {
-  const settings = getSettings()
-  const facts = getDifficultFacts(sourceSessionId)
+export function createRemediationSession(
+  kidId: number,
+  sourceSessionId: number,
+): NewSession {
+  const settings = getSettings(kidId)
+  const facts = getDifficultFacts(kidId, sourceSessionId)
   const problems = buildRemediationSession(facts)
   return insertSession(
+    kidId,
     'remediation',
     settings.timeLimitMs,
     problems,
@@ -56,6 +60,7 @@ export function createRemediationSession(sourceSessionId: number): NewSession {
 }
 
 function insertSession(
+  kidId: number,
   mode: SessionMode,
   timeLimitMs: number,
   problems: Fact[],
@@ -63,10 +68,10 @@ function insertSession(
 ): NewSession {
   const result = getDb()
     .prepare(
-      `INSERT INTO sessions (mode, startedAt, timeLimitMs, sourceSessionId)
-       VALUES (?, ?, ?, ?)`,
+      `INSERT INTO sessions (kidId, mode, startedAt, timeLimitMs, sourceSessionId)
+       VALUES (?, ?, ?, ?, ?)`,
     )
-    .run(mode, nowIso(), timeLimitMs, sourceSessionId)
+    .run(kidId, mode, nowIso(), timeLimitMs, sourceSessionId)
   return {
     sessionId: Number(result.lastInsertRowid),
     mode,
@@ -75,15 +80,16 @@ function insertSession(
   }
 }
 
-export function getDifficultFacts(sessionId: number): Fact[] {
+export function getDifficultFacts(kidId: number, sessionId: number): Fact[] {
   const rows = getDb()
     .prepare(
       `SELECT DISTINCT a, b
          FROM attempts
-        WHERE sessionId = ?
+        WHERE kidId = ?
+          AND sessionId = ?
           AND (result != 'correct' OR responseMs >= timeLimitMs * ?)`,
     )
-    .all(sessionId, SLOW_ANSWER_FRACTION) as Fact[]
+    .all(kidId, sessionId, SLOW_ANSWER_FRACTION) as Fact[]
   return rows
 }
 
@@ -98,11 +104,12 @@ export interface CompletionSummary {
  * limit is re-evaluated.
  */
 export function completeSession(
+  kidId: number,
   sessionId: number,
   attempts: AttemptInput[],
 ): CompletionSummary {
   const db = getDb()
-  const session = getSession(sessionId)
+  const session = getSession(kidId, sessionId)
   if (!session) throw new Error(`Unknown session ${sessionId}`)
   if (session.completedAt) throw new Error(`Session ${sessionId} already recorded`)
 
@@ -111,18 +118,18 @@ export function completeSession(
 
   const insertAttempt = db.prepare(
     `INSERT INTO attempts
-       (sessionId, a, b, answerGiven, correctAnswer, result, responseMs, timeLimitMs, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (kidId, sessionId, a, b, answerGiven, correctAnswer, result, responseMs, timeLimitMs, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
   const upsertFact = db.prepare(
     `INSERT INTO facts
-       (a, b, pairKey, masteryScore, masteryStatus, totalAttempts, correctAttempts,
+       (kidId, a, b, pairKey, masteryScore, masteryStatus, totalAttempts, correctAttempts,
         incorrectAttempts, timeouts, totalResponseMs, recentResponseMs, lastSeen,
         lastResult, recentResults)
-     VALUES (@a, @b, @pairKey, @masteryScore, @masteryStatus, @totalAttempts,
+     VALUES (@kidId, @a, @b, @pairKey, @masteryScore, @masteryStatus, @totalAttempts,
              @correctAttempts, @incorrectAttempts, @timeouts, @totalResponseMs,
              @recentResponseMs, @lastSeen, @lastResult, @recentResults)
-     ON CONFLICT (a, b) DO UPDATE SET
+     ON CONFLICT (kidId, a, b) DO UPDATE SET
        masteryScore = @masteryScore,
        masteryStatus = @masteryStatus,
        totalAttempts = @totalAttempts,
@@ -136,10 +143,12 @@ export function completeSession(
        recentResults = @recentResults`,
   )
   const insertMasteryEvent = db.prepare(
-    `INSERT INTO mastery_events (a, b, fromStatus, toStatus, masteryScore, sessionId, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO mastery_events (kidId, a, b, fromStatus, toStatus, masteryScore, sessionId, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   )
-  const selectFact = db.prepare('SELECT * FROM facts WHERE a = ? AND b = ?')
+  const selectFact = db.prepare(
+    'SELECT * FROM facts WHERE kidId = ? AND a = ? AND b = ?',
+  )
 
   const run = db.transaction(() => {
     let correct = 0
@@ -156,6 +165,7 @@ export function completeSession(
       )
 
       insertAttempt.run(
+        kidId,
         sessionId,
         attempt.a,
         attempt.b,
@@ -172,7 +182,7 @@ export function completeSession(
       else timeouts += 1
       totalResponseMs += responseMs
 
-      const existingRow = selectFact.get(attempt.a, attempt.b) as
+      const existingRow = selectFact.get(kidId, attempt.a, attempt.b) as
         | (Omit<FactRecord, 'recentResults'> & { recentResults: string })
         | undefined
       const previous: FactRecord = existingRow
@@ -185,11 +195,13 @@ export function completeSession(
       const updated = applyAttemptToFact(previous, result, responseMs, timeLimitMs, timestamp)
       upsertFact.run({
         ...updated,
+        kidId,
         recentResults: JSON.stringify(updated.recentResults),
       })
 
       if (updated.masteryStatus !== previous.masteryStatus) {
         insertMasteryEvent.run(
+          kidId,
           attempt.a,
           attempt.b,
           previous.masteryStatus,
@@ -205,7 +217,7 @@ export function completeSession(
       `UPDATE sessions
           SET completedAt = ?, presented = ?, correct = ?, incorrect = ?,
               timeouts = ?, totalResponseMs = ?
-        WHERE id = ?`,
+        WHERE kidId = ? AND id = ?`,
     ).run(
       timestamp,
       attempts.length,
@@ -213,6 +225,7 @@ export function completeSession(
       incorrect,
       timeouts,
       totalResponseMs,
+      kidId,
       sessionId,
     )
   })
@@ -220,9 +233,11 @@ export function completeSession(
   run()
 
   const timerChange =
-    session.mode === 'standard' ? evaluateTimerProgression(sessionId) : null
+    session.mode === 'standard'
+      ? evaluateTimerProgression(kidId, sessionId)
+      : null
 
-  return { session: getSession(sessionId)!, timerChange }
+  return { session: getSession(kidId, sessionId)!, timerChange }
 }
 
 function normaliseResult(
@@ -284,23 +299,37 @@ export function applyAttemptToFact(
   }
 }
 
-export function getSession(id: number): SessionRecord | null {
+/*
+  The kidId goes into the WHERE clause rather than being checked after the read,
+  so another kid's session id returns "not found" instead of fetching the row
+  and relying on a caller to reject it.
+*/
+
+export function getSession(kidId: number, id: number): SessionRecord | null {
   const row = getDb()
-    .prepare('SELECT * FROM sessions WHERE id = ?')
-    .get(id) as SessionRecord | undefined
+    .prepare('SELECT * FROM sessions WHERE kidId = ? AND id = ?')
+    .get(kidId, id) as SessionRecord | undefined
   return row ?? null
 }
 
-export function getSessionAttempts(sessionId: number): AttemptRecord[] {
+export function getSessionAttempts(
+  kidId: number,
+  sessionId: number,
+): AttemptRecord[] {
   return getDb()
-    .prepare('SELECT * FROM attempts WHERE sessionId = ? ORDER BY id')
-    .all(sessionId) as AttemptRecord[]
+    .prepare(
+      'SELECT * FROM attempts WHERE kidId = ? AND sessionId = ? ORDER BY id',
+    )
+    .all(kidId, sessionId) as AttemptRecord[]
 }
 
-export function deleteAbandonedSession(id: number) {
+export function deleteAbandonedSession(kidId: number, id: number) {
   const db = getDb()
-  const session = getSession(id)
+  const session = getSession(kidId, id)
   if (!session || session.completedAt) return
-  db.prepare('DELETE FROM attempts WHERE sessionId = ?').run(id)
-  db.prepare('DELETE FROM sessions WHERE id = ?').run(id)
+  db.prepare('DELETE FROM attempts WHERE kidId = ? AND sessionId = ?').run(
+    kidId,
+    id,
+  )
+  db.prepare('DELETE FROM sessions WHERE kidId = ? AND id = ?').run(kidId, id)
 }

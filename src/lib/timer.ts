@@ -47,9 +47,10 @@ function mean(values: number[]): number {
  * null if the current limit still fits.
  */
 export function evaluateTimerProgression(
+  kidId: number,
   sessionId: number,
 ): { fromMs: number; toMs: number; reason: string } | null {
-  const settings = getSettings()
+  const settings = getSettings(kidId)
   const limit = settings.timeLimitMs
   const rung = nearestRungIndex(limit)
 
@@ -57,14 +58,15 @@ export function evaluateTimerProgression(
     .prepare(
       `SELECT presented, correct, timeouts, totalResponseMs
          FROM sessions
-        WHERE mode = 'standard'
+        WHERE kidId = ?
+          AND mode = 'standard'
           AND completedAt IS NOT NULL
           AND timeLimitMs = ?
           AND presented > 0
         ORDER BY completedAt DESC
         LIMIT ?`,
     )
-    .all(limit, SESSIONS_TO_STEP_DOWN) as RecentSessionRow[]
+    .all(kidId, limit, SESSIONS_TO_STEP_DOWN) as RecentSessionRow[]
 
   if (rows.length === 0) return null
 
@@ -90,7 +92,7 @@ export function evaluateTimerProgression(
         upTimeouts >= STEP_UP_MIN_TIMEOUT_RATE
           ? `Timeouts averaged ${(upTimeouts * 100).toFixed(0)}% over the last ${SESSIONS_TO_STEP_UP} sessions`
           : `Accuracy on attempted problems averaged ${(upAccuracy * 100).toFixed(0)}% over the last ${SESSIONS_TO_STEP_UP} sessions`
-      applyChange(limit, toMs, reason, sessionId)
+      applyChange(kidId, limit, toMs, reason, sessionId)
       return { fromMs: limit, toMs, reason }
     }
   }
@@ -103,7 +105,7 @@ export function evaluateTimerProgression(
     ) {
       const toMs = TIMER_RUNGS_MS[rung + 1]
       const reason = `${SESSIONS_TO_STEP_DOWN} sessions averaging ${(mean(presentedAccuracy) * 100).toFixed(0)}% accuracy at ${(mean(avgResponse) / 1000).toFixed(1)}s per problem`
-      applyChange(limit, toMs, reason, sessionId)
+      applyChange(kidId, limit, toMs, reason, sessionId)
       return { fromMs: limit, toMs, reason }
     }
   }
@@ -112,28 +114,33 @@ export function evaluateTimerProgression(
 }
 
 function applyChange(
+  kidId: number,
   fromMs: number,
   toMs: number,
   reason: string,
   sessionId: number,
 ) {
-  updateSettings({ timeLimitMs: toMs })
+  updateSettings(kidId, { timeLimitMs: toMs })
   getDb()
     .prepare(
-      `INSERT INTO timer_events (fromMs, toMs, reason, sessionId, createdAt)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO timer_events (kidId, fromMs, toMs, reason, sessionId, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     )
-    .run(fromMs, toMs, reason, sessionId, nowIso())
+    .run(kidId, fromMs, toMs, reason, sessionId, nowIso())
 }
 
-export function logManualTimerChange(fromMs: number, toMs: number) {
+export function logManualTimerChange(
+  kidId: number,
+  fromMs: number,
+  toMs: number,
+) {
   if (fromMs === toMs) return
   getDb()
     .prepare(
-      `INSERT INTO timer_events (fromMs, toMs, reason, sessionId, createdAt)
-       VALUES (?, ?, ?, NULL, ?)`,
+      `INSERT INTO timer_events (kidId, fromMs, toMs, reason, sessionId, createdAt)
+       VALUES (?, ?, ?, ?, NULL, ?)`,
     )
-    .run(fromMs, toMs, 'Set manually in settings', nowIso())
+    .run(kidId, fromMs, toMs, 'Set manually in settings', nowIso())
 }
 
 export interface TimerEvent {
@@ -144,26 +151,30 @@ export interface TimerEvent {
   createdAt: string
 }
 
-export function getTimerEvents(limit = 20): TimerEvent[] {
+export function getTimerEvents(kidId: number, limit = 20): TimerEvent[] {
   return getDb()
     .prepare(
       `SELECT id, fromMs, toMs, reason, createdAt
          FROM timer_events
+        WHERE kidId = ?
         ORDER BY createdAt DESC
         LIMIT ?`,
     )
-    .all(limit) as TimerEvent[]
+    .all(kidId, limit) as TimerEvent[]
 }
 
-export function getTimerEventForSession(sessionId: number): TimerEvent | null {
+export function getTimerEventForSession(
+  kidId: number,
+  sessionId: number,
+): TimerEvent | null {
   const row = getDb()
     .prepare(
       `SELECT id, fromMs, toMs, reason, createdAt
          FROM timer_events
-        WHERE sessionId = ?
+        WHERE kidId = ? AND sessionId = ?
         ORDER BY id DESC
         LIMIT 1`,
     )
-    .get(sessionId) as TimerEvent | undefined
+    .get(kidId, sessionId) as TimerEvent | undefined
   return row ?? null
 }

@@ -10,6 +10,7 @@ import {
   percent,
   seconds,
 } from '@/lib/format'
+import { parseKidId, requireKid, requireSession } from '@/lib/dal'
 import { getSessionSummary } from '@/lib/results'
 import { getTimerEventForSession } from '@/lib/timer'
 import styles from '../results.module.css'
@@ -19,17 +20,25 @@ export const metadata = { title: 'Session results' }
 
 export default async function ResultsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ kid?: string }>
 }) {
+  const viewer = await requireSession()
   const { id } = await params
+  const { kid: kidParam } = await searchParams
+  const kid = await requireKid(parseKidId(kidParam))
+
   const sessionId = Number(id)
   if (!Number.isInteger(sessionId)) notFound()
 
-  const summary = getSessionSummary(sessionId)
+  // Scoped by kid in the query, so another child's session id is simply absent
+  // rather than fetched and then rejected.
+  const summary = getSessionSummary(kid.id, sessionId)
   if (!summary || !summary.session.completedAt) notFound()
 
-  const timerChange = getTimerEventForSession(sessionId)
+  const timerChange = getTimerEventForSession(kid.id, sessionId)
   const isRemediation = summary.session.mode === 'remediation'
   const difficultFactCount = new Set(
     summary.difficult.map((attempt) => `${attempt.a}x${attempt.b}`),
@@ -37,7 +46,11 @@ export default async function ResultsPage({
 
   return (
     <div className="shell">
-      <SiteNav />
+      <SiteNav
+        role={viewer.role}
+        kidId={kid.id}
+        kidName={viewer.role === 'parent' ? kid.name : undefined}
+      />
       <div className="stack">
         <header>
           <p className="eyebrow">
@@ -174,7 +187,7 @@ export default async function ResultsPage({
         </section>
 
         <div className="btnRow">
-          {summary.difficult.length > 0 && (
+          {viewer.role === 'kid' && summary.difficult.length > 0 && (
             <Link
               className="btn btnPrimary"
               href={`/run?mode=remediation&from=${sessionId}`}
@@ -182,10 +195,17 @@ export default async function ResultsPage({
               Practice these {difficultFactCount} facts
             </Link>
           )}
-          <Link className="btn" href="/run">
-            Start another session
-          </Link>
-          <Link className="btn" href="/trends">
+          {viewer.role === 'kid' && (
+            <Link className="btn" href="/run">
+              Start another session
+            </Link>
+          )}
+          <Link
+            className="btn"
+            href={
+              viewer.role === 'parent' ? `/trends?kid=${kid.id}` : '/trends'
+            }
+          >
             See trends
           </Link>
         </div>

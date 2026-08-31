@@ -1,0 +1,35 @@
+.who {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.name {
+  font: inherit;
+  font-weight: 550;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--rule-strong);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.name:hover {
+  border-color: var(--accent-soft);
+  background: var(--accent-wash);
+}
+
+.nameActive {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.greeting {
+  margin: 0 0 16px;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+}

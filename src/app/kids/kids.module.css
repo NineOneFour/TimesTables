@@ -1,0 +1,65 @@
+.kid {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.kid:last-of-type {
+  border-bottom: none;
+}
+
+.kidName {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.kidStats {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+  margin: 4px 0 0;
+}
+
+.kidStat b {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.kidLinks {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+}
+
+.formRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.formRow > label {
+  flex: 1 1 160px;
+  margin-bottom: 0;
+}
+
+.danger {
+  color: var(--bad);
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}

@@ -25,10 +25,14 @@ echo "==> building locally"
 npm run build
 
 echo "==> syncing to $HOST:$REMOTE"
-# data/ is excluded so the box keeps its own database.
+# data/ is excluded so the box keeps its own database, and .env so it keeps its
+# own SESSION_SECRET — without that exclude, --delete removes the server's
+# secret and every existing sign-in cookie stops verifying.
 rsync -az --delete \
   --exclude '/node_modules/' \
   --exclude '/data/' \
+  --exclude '/.env' \
+  --exclude '/.env.local' \
   --exclude '/.next/dev/' \
   --exclude '/.next/cache/' \
   --exclude '*.tsbuildinfo' \
@@ -48,10 +52,28 @@ ssh "$HOST" 'systemctl restart timestables.service'
 sleep 5
 ssh "$HOST" 'systemctl is-active timestables.service'
 
+# Every page is behind sign-in now, so a 200 on one would be the failure. Each
+# entry is a path and the codes that are correct for it: /signin answers 200 once
+# the instance is set up and 307 to /setup before that, and /api/settings must
+# refuse an unauthenticated caller rather than serve anything.
 echo "==> smoke test"
-for p in / /table /settings /trends /api/settings; do
-  code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE_URL$p")
-  printf '  %-16s %s\n' "$p" "$code"
-  [ "$code" = "200" ] || { echo "FAIL: $p returned $code"; exit 1; }
-done
+smoke() {
+  path="$1"; shift
+  code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE_URL$path")
+  for want in "$@"; do
+    if [ "$code" = "$want" ]; then
+      printf '  %-16s %s\n' "$path" "$code"
+      return 0
+    fi
+  done
+  echo "FAIL: $path returned $code, expected one of: $*"
+  exit 1
+}
+smoke /              307
+smoke /table         307
+smoke /trends        307
+smoke /settings      307
+smoke /kids          307
+smoke /api/settings  401
+smoke /signin        200 307
 echo "==> deployed: $BASE_URL"

@@ -1,30 +1,39 @@
 import SiteNav from '@/components/site-nav'
 import ReferenceTable from '@/components/reference-table'
+import { parseKidId, requireKid, requireSession } from '@/lib/dal'
 import { referenceView } from '@/lib/reference'
-import styles from './table.module.css'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Times table' }
 
-export default function TablePage() {
-  const { factors, cells } = referenceView()
+export default async function TablePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ kid?: string }>
+}) {
+  const session = await requireSession()
+  const { kid: kidParam } = await searchParams
+  const kid = await requireKid(parseKidId(kidParam))
+  const { factors, cells } = referenceView(kid.id)
 
   return (
     <div className="shell">
-      <SiteNav current="/table" />
+      <SiteNav
+        role={session.role}
+        current="/table"
+        kidId={kid.id}
+        kidName={session.role === 'parent' ? kid.name : undefined}
+      />
       <div className="stack">
         <header>
           <p className="eyebrow">Reference</p>
           <h1>Times table</h1>
           <p className="note" style={{ marginTop: 8 }}>
-            Every answer in the current factor pool. Look up whatever you need —
-            the shading is only there to show which ones are already sticking.
+            Shaded by how well each fact is known.
           </p>
         </header>
         <section className="panel">
-          <div className={styles.tableBlock}>
-            <ReferenceTable factors={factors} cells={cells} />
-          </div>
+          <ReferenceTable factors={factors} cells={cells} />
         </section>
       </div>
     </div>

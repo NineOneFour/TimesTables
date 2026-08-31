@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { requireSession } from '@/lib/dal'
 import { getLatestCompletedSessionId } from '@/lib/results'
 import styles from './home.module.css'
 
@@ -7,9 +9,15 @@ export const dynamic = 'force-dynamic'
 /*
   The child's door. No score, no streak, no history — the analysis screens are
   one deliberate click away, so starting a run never begins with a scoreboard.
+
+  Practice setup is not here at all now: it belongs to the parent, who has their
+  own landing page.
 */
-export default function HomePage() {
-  const latest = getLatestCompletedSessionId()
+export default async function HomePage() {
+  const session = await requireSession()
+  if (session.role === 'parent') redirect('/kids')
+
+  const latest = getLatestCompletedSessionId(session.kidId)
 
   return (
     <main className={styles.door}>
@@ -24,7 +32,6 @@ export default function HomePage() {
         <Link href="/table">Times table</Link>
         {latest !== null && <Link href={`/results/${latest}`}>Last results</Link>}
         <Link href="/trends">Trends</Link>
-        <Link href="/settings">Settings</Link>
       </div>
     </main>
   )

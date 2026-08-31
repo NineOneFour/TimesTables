@@ -27,7 +27,7 @@ export interface SessionTrendPoint {
 }
 
 /** Session-level history. Remediation runs are excluded — they are not scored challenges. */
-export function getSessionTrend(limit = 30): SessionTrendPoint[] {
+export function getSessionTrend(kidId: number, limit = 30): SessionTrendPoint[] {
   const rows = getDb()
     .prepare(
       `SELECT s.id            AS sessionId,
@@ -38,15 +38,18 @@ export function getSessionTrend(limit = 30): SessionTrendPoint[] {
               s.timeouts      AS timeouts,
               s.timeLimitMs   AS timeLimitMs,
               (SELECT AVG(responseMs) FROM attempts
-                WHERE sessionId = s.id AND result != 'timeout') AS avgAnsweredMs
+                WHERE kidId = s.kidId
+                  AND sessionId = s.id
+                  AND result != 'timeout') AS avgAnsweredMs
          FROM sessions s
-        WHERE s.mode = 'standard'
+        WHERE s.kidId = ?
+          AND s.mode = 'standard'
           AND s.completedAt IS NOT NULL
           AND s.presented > 0
         ORDER BY s.completedAt DESC
         LIMIT ?`,
     )
-    .all(limit) as (Omit<
+    .all(kidId, limit) as (Omit<
       SessionTrendPoint,
       'accuracyPresented' | 'accuracyAttempted' | 'avgResponseAnsweredMs'
     > & { avgAnsweredMs: number | null })[]
@@ -108,7 +111,11 @@ interface WindowRow {
   answered: number
 }
 
-function windowStats(sinceDaysAgo: number, untilDaysAgo: number): Map<string, FactWindowStats> {
+function windowStats(
+  kidId: number,
+  sinceDaysAgo: number,
+  untilDaysAgo: number,
+): Map<string, FactWindowStats> {
   const rows = getDb()
     .prepare(
       `SELECT a, b,
@@ -118,11 +125,12 @@ function windowStats(sinceDaysAgo: number, untilDaysAgo: number): Map<string, Fa
               SUM(CASE WHEN result != 'timeout' THEN responseMs END) AS answeredMs,
               SUM(result != 'timeout')                        AS answered
          FROM attempts
-        WHERE createdAt >= datetime('now', ?)
+        WHERE kidId = ?
+          AND createdAt >= datetime('now', ?)
           AND createdAt <  datetime('now', ?)
         GROUP BY a, b`,
     )
-    .all(`-${sinceDaysAgo} days`, `-${untilDaysAgo} days`) as WindowRow[]
+    .all(kidId, `-${sinceDaysAgo} days`, `-${untilDaysAgo} days`) as WindowRow[]
 
   const map = new Map<string, FactWindowStats>()
   for (const row of rows) {
@@ -154,17 +162,17 @@ const EMPTY_WINDOW: FactWindowStats = {
  * accuracy with the change in speed, so a fact that got faster at the same
  * accuracy still reads as improving.
  */
-export function getFactTrends(): FactTrend[] {
-  const settings = getSettings()
+export function getFactTrends(kidId: number): FactTrend[] {
+  const settings = getSettings(kidId)
   const activeKeys = new Set(
-    getActiveFactRecords(settings).map((r) => `${r.a}x${r.b}`),
+    getActiveFactRecords(kidId, settings).map((r) => `${r.a}x${r.b}`),
   )
-  const recent = windowStats(RECENT_WINDOW_DAYS, 0)
-  const previous = windowStats(RECENT_WINDOW_DAYS * 2, RECENT_WINDOW_DAYS)
+  const recent = windowStats(kidId, RECENT_WINDOW_DAYS, 0)
+  const previous = windowStats(kidId, RECENT_WINDOW_DAYS * 2, RECENT_WINDOW_DAYS)
 
-  const records: FactRecord[] = getAllFactRecords()
+  const records: FactRecord[] = getAllFactRecords(kidId)
   const seen = new Set(records.map((r) => `${r.a}x${r.b}`))
-  const activeBlanks = getActiveFactRecords(settings).filter(
+  const activeBlanks = getActiveFactRecords(kidId, settings).filter(
     (r) => !seen.has(`${r.a}x${r.b}`),
   )
 
@@ -225,6 +233,7 @@ export interface FactProblemCount {
 }
 
 function factProblemCounts(
+  kidId: number,
   column: 'incorrect' | 'timeout' | 'slow',
   windowDays: number,
 ): FactProblemCount[] {
@@ -243,30 +252,32 @@ function factProblemCounts(
               AVG(CASE WHEN a.result != 'timeout' THEN a.responseMs END) AS avgAnsweredMs,
               COALESCE(f.masteryStatus, 'unknown') AS masteryStatus
          FROM attempts a
-         LEFT JOIN facts f ON f.a = a.a AND f.b = a.b
-        WHERE a.createdAt >= datetime('now', ?)
+         LEFT JOIN facts f
+                ON f.kidId = a.kidId AND f.a = a.a AND f.b = a.b
+        WHERE a.kidId = ?
+          AND a.createdAt >= datetime('now', ?)
         GROUP BY a.a, a.b
        HAVING count > 0
         ORDER BY count DESC, attempts DESC`,
     )
-    .all(`-${windowDays} days`) as (Omit<FactProblemCount, 'rate'> & {
+    .all(kidId, `-${windowDays} days`) as (Omit<FactProblemCount, 'rate'> & {
       masteryStatus: MasteryStatus
     })[]
 
   return rows.map((row) => ({ ...row, rate: row.count / row.attempts }))
 }
 
-export function getFrequentlyIncorrect(windowDays = 30) {
-  return factProblemCounts('incorrect', windowDays)
+export function getFrequentlyIncorrect(kidId: number, windowDays = 30) {
+  return factProblemCounts(kidId, 'incorrect', windowDays)
 }
 
-export function getFrequentlyTimedOut(windowDays = 30) {
-  return factProblemCounts('timeout', windowDays)
+export function getFrequentlyTimedOut(kidId: number, windowDays = 30) {
+  return factProblemCounts(kidId, 'timeout', windowDays)
 }
 
 /** Correct, but consistently near the time limit. */
-export function getCorrectButSlow(windowDays = 30) {
-  return factProblemCounts('slow', windowDays)
+export function getCorrectButSlow(kidId: number, windowDays = 30) {
+  return factProblemCounts(kidId, 'slow', windowDays)
 }
 
 export interface MasteryEvent {
@@ -279,15 +290,16 @@ export interface MasteryEvent {
   createdAt: string
 }
 
-export function getMasteryEvents(limit = 40): MasteryEvent[] {
+export function getMasteryEvents(kidId: number, limit = 40): MasteryEvent[] {
   return getDb()
     .prepare(
       `SELECT id, a, b, fromStatus, toStatus, masteryScore, createdAt
          FROM mastery_events
+        WHERE kidId = ?
         ORDER BY createdAt DESC, id DESC
         LIMIT ?`,
     )
-    .all(limit) as MasteryEvent[]
+    .all(kidId, limit) as MasteryEvent[]
 }
 
 export interface MasteryDistribution {
@@ -295,8 +307,8 @@ export interface MasteryDistribution {
   count: number
 }
 
-export function getMasteryDistribution(): MasteryDistribution[] {
-  const records = getActiveFactRecords(getSettings())
+export function getMasteryDistribution(kidId: number): MasteryDistribution[] {
+  const records = getActiveFactRecords(kidId, getSettings(kidId))
   const order: MasteryStatus[] = [
     'unknown',
     'weak',
@@ -317,33 +329,39 @@ export interface OverviewStats {
   currentTimeLimitMs: number
 }
 
-export function getOverviewStats(): OverviewStats {
+export function getOverviewStats(kidId: number): OverviewStats {
   const db = getDb()
   const sessions = db
     .prepare(
-      `SELECT COUNT(*) AS n FROM sessions WHERE mode = 'standard' AND completedAt IS NOT NULL`,
+      `SELECT COUNT(*) AS n FROM sessions
+        WHERE kidId = ? AND mode = 'standard' AND completedAt IS NOT NULL`,
     )
-    .get() as { n: number }
-  const attempts = db.prepare('SELECT COUNT(*) AS n FROM attempts').get() as {
-    n: number
-  }
+    .get(kidId) as { n: number }
+  const attempts = db
+    .prepare('SELECT COUNT(*) AS n FROM attempts WHERE kidId = ?')
+    .get(kidId) as { n: number }
   const facts = db
-    .prepare('SELECT COUNT(*) AS n FROM facts WHERE totalAttempts > 0')
-    .get() as { n: number }
+    .prepare(
+      'SELECT COUNT(*) AS n FROM facts WHERE kidId = ? AND totalAttempts > 0',
+    )
+    .get(kidId) as { n: number }
   return {
     totalSessions: sessions.n,
     totalAttempts: attempts.n,
     factsTracked: facts.n,
-    currentTimeLimitMs: getSettings().timeLimitMs,
+    currentTimeLimitMs: getSettings(kidId).timeLimitMs,
   }
 }
 
 /** Weakest and strongest facts in the active pool, excluding unmeasured ones. */
-export function getExtremeFacts(count = 10): {
+export function getExtremeFacts(
+  kidId: number,
+  count = 10,
+): {
   weakest: FactRecord[]
   strongest: FactRecord[]
 } {
-  const measured = getActiveFactRecords(getSettings())
+  const measured = getActiveFactRecords(kidId, getSettings(kidId))
     .filter((r) => r.masteryStatus !== 'unknown')
     .sort((x, y) => x.masteryScore - y.masteryScore)
   return {

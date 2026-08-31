@@ -6,9 +6,11 @@ import type { Settings } from '@/lib/types'
 import styles from './settings.module.css'
 
 export default function SettingsForm({
+  kidId,
   initial,
   rungs,
 }: {
+  kidId: number
   initial: Settings
   rungs: number[]
 }) {
@@ -22,7 +24,7 @@ export default function SettingsForm({
     setError(null)
     const optimistic = { ...settings, ...patch }
     setSettings(optimistic)
-    const response = await fetch('/api/settings', {
+    const response = await fetch(`/api/settings?kid=${kidId}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(patch),

@@ -102,10 +102,11 @@ function drawWeighted(candidates: WeightedFact[]): WeightedFact {
  * a nonzero weight so regression stays detectable.
  */
 export function buildStandardSession(
+  kidId: number,
   settings: Settings,
   length = STANDARD_SESSION_LENGTH,
 ): Fact[] {
-  const weighted = weightFacts(getActiveFactRecords(settings))
+  const weighted = weightFacts(getActiveFactRecords(kidId, settings))
   const appearances = new Map<string, number>()
   const problems: Fact[] = []
 

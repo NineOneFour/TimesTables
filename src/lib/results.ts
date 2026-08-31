@@ -28,10 +28,13 @@ const SLOW_ANSWER_FRACTION = 0.7
 
 const RESULT_RANK = { timeout: 0, incorrect: 1, correct: 2 }
 
-export function getSessionSummary(sessionId: number): SessionSummary | null {
-  const session = getSession(sessionId)
+export function getSessionSummary(
+  kidId: number,
+  sessionId: number,
+): SessionSummary | null {
+  const session = getSession(kidId, sessionId)
   if (!session) return null
-  const attempts = getSessionAttempts(sessionId)
+  const attempts = getSessionAttempts(kidId, sessionId)
 
   const presented = attempts.length
   const correct = attempts.filter((a) => a.result === 'correct').length
@@ -72,11 +75,13 @@ export function getSessionSummary(sessionId: number): SessionSummary | null {
   }
 }
 
-export function getLatestCompletedSessionId(): number | null {
+export function getLatestCompletedSessionId(kidId: number): number | null {
   const row = getDb()
     .prepare(
-      `SELECT id FROM sessions WHERE completedAt IS NOT NULL ORDER BY completedAt DESC LIMIT 1`,
+      `SELECT id FROM sessions
+        WHERE kidId = ? AND completedAt IS NOT NULL
+        ORDER BY completedAt DESC LIMIT 1`,
     )
-    .get() as { id: number } | undefined
+    .get(kidId) as { id: number } | undefined
   return row?.id ?? null
 }

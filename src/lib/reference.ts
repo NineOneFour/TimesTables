@@ -6,14 +6,17 @@ import type { ReferenceCell } from '@/components/reference-table'
  * Factors and per-fact mastery for the reference chart. Shared by the reference
  * page and the run screen so both shade the same way.
  */
-export function referenceView(): {
+export function referenceView(kidId: number): {
   factors: number[]
   cells: ReferenceCell[]
 } {
-  const settings = getSettings()
+  const settings = getSettings(kidId)
   const factors = activeFactors(settings)
   const stored = new Map(
-    getAllFactRecords().map((record) => [factKey(record.a, record.b), record]),
+    getAllFactRecords(kidId).map((record) => [
+      factKey(record.a, record.b),
+      record,
+    ]),
   )
 
   const cells: ReferenceCell[] = []

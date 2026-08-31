@@ -318,3 +318,67 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- forms ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.fieldLabel {
+  font-size: 0.875rem;
+  font-weight: 550;
+  color: var(--ink);
+}
+
+.input {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  padding: 11px 12px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  width: 100%;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+/* A PIN is short and numeric; spacing it out makes a mistyped digit visible. */
+.inputPin {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  letter-spacing: 0.5em;
+  text-align: center;
+  font-size: 1.25rem;
+}
+
+.formError {
+  color: var(--bad);
+  font-size: 0.875rem;
+  margin: 0 0 12px;
+}
+
+/* ---------- narrow single-purpose pages (sign in, setup) ---------- */
+
+.gate {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 64px 24px 80px;
+}
+
+.gateTitle {
+  margin: 0 0 8px;
+}
+
+.gateFoot {
+  margin-top: 20px;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+  text-align: center;
+}

@@ -11,6 +11,7 @@ import {
   seconds,
   shortDate,
 } from '@/lib/format'
+import { parseKidId, requireKid, requireSession } from '@/lib/dal'
 import { getSettings } from '@/lib/settings'
 import { getTimerEvents } from '@/lib/timer'
 import {
@@ -44,22 +45,42 @@ const TREND_CLASSES: Record<FactTrend['direction'], string> = {
   'insufficient-data': 'trendInsufficient',
 }
 
-export default function TrendsPage() {
-  const settings = getSettings()
-  const overview = getOverviewStats()
-  const sessions = getSessionTrend()
-  const distribution = getMasteryDistribution()
-  const records = getActiveFactRecords(settings)
-  const { weakest, strongest } = getExtremeFacts()
+/*
+  One page for both roles. A kid resolves only to themselves and a parent to a
+  child they own, so who may read this is settled by requireKid rather than by
+  having two versions of the page.
+*/
+export default async function TrendsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ kid?: string }>
+}) {
+  const viewer = await requireSession()
+  const { kid: kidParam } = await searchParams
+  const kid = await requireKid(parseKidId(kidParam))
+  const kidId = kid.id
+
+  const settings = getSettings(kidId)
+  const overview = getOverviewStats(kidId)
+  const sessions = getSessionTrend(kidId)
+  const distribution = getMasteryDistribution(kidId)
+  const records = getActiveFactRecords(kidId, settings)
+  const { weakest, strongest } = getExtremeFacts(kidId)
   // Disabled factors keep their history but are not what to work on next.
-  const factTrends = getFactTrends().filter((f) => f.inActivePool)
+  const factTrends = getFactTrends(kidId).filter((f) => f.inActivePool)
   const improving = factTrends.filter((f) => f.direction === 'improving')
   const regressing = factTrends.filter((f) => f.direction === 'regressing')
-  const frequentlyIncorrect = getFrequentlyIncorrect().slice(0, 10)
-  const frequentlyTimedOut = getFrequentlyTimedOut().slice(0, 10)
-  const correctButSlow = getCorrectButSlow().slice(0, 10)
-  const masteryEvents = getMasteryEvents(25)
-  const timerEvents = getTimerEvents(10)
+  const frequentlyIncorrect = getFrequentlyIncorrect(kidId).slice(0, 10)
+  const frequentlyTimedOut = getFrequentlyTimedOut(kidId).slice(0, 10)
+  const correctButSlow = getCorrectButSlow(kidId).slice(0, 10)
+  const masteryEvents = getMasteryEvents(kidId, 25)
+  const timerEvents = getTimerEvents(kidId, 10)
+
+  // Keeps a parent on the child they are reading when following a link.
+  const resultsHref = (sessionId: number) =>
+    viewer.role === 'parent'
+      ? `/results/${sessionId}?kid=${kidId}`
+      : `/results/${sessionId}`
 
   const accuracyPoints: LinePoint[] = sessions.map((session) => ({
     label: shortDate(session.completedAt),
@@ -83,7 +104,12 @@ export default function TrendsPage() {
 
   return (
     <div className="shell">
-      <SiteNav current="/trends" />
+      <SiteNav
+        role={viewer.role}
+        current="/trends"
+        kidId={kidId}
+        kidName={viewer.role === 'parent' ? kid.name : undefined}
+      />
       <div className="stack">
         <header>
           <p className="eyebrow">Analysis</p>
@@ -188,7 +214,7 @@ export default function TrendsPage() {
                   {[...sessions].reverse().map((session) => (
                     <tr key={session.sessionId}>
                       <td>
-                        <Link href={`/results/${session.sessionId}`}>
+                        <Link href={resultsHref(session.sessionId)}>
                           {shortDate(session.completedAt)}
                         </Link>
                       </td>
